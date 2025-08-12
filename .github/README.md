@@ -1,4 +1,3 @@
---teste
 # GitHub Actions Workflows - Release e Deploy
 
 Este repositório contém workflows automatizados para release e deploy de imagens Docker.
