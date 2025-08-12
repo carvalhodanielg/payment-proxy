@@ -30,6 +30,12 @@ jobs:
           github_ref: ${{ github.ref }}
           github_actor: ${{ github.actor }}
           github_repository: ${{ github.repository }}
+          # Configurações para garantir tags válidos
+          semantic_version: 1
+          # Força criação de tags semânticos
+          force: false
+          # Configura branches permitidas
+          branches: main
 
   build-and-push:
     needs: release
