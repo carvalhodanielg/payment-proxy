@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # Aplicação principal
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - PROCESSOR_PRIMARY=http://processor-primary:3001
+      - PROCESSOR_FALLBACK=http://processor-fallback:3002
+    depends_on:
+      - redis
+      - processor-primary
+      - processor-fallback
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bun", "run", "health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - payment-network
+
+  # Redis para fila de mensagens
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - payment-network
+
+  # Processador primário (mock)
+  processor-primary:
+    image: oven/bun:1.0-alpine
+    ports:
+      - "3001:3001"
+    working_dir: /app
+    command: >
+      sh -c "
+        echo 'const server = Bun.serve({port: 3001, fetch: (req) => { 
+          if (req.url.includes(\"/payments/service-health\")) {
+            return new Response(JSON.stringify({ok: true, failing: false, minResponseTime: 100}));
+          }
+          if (req.url.includes(\"/payments\")) {
+            return new Response(JSON.stringify({message: \"payment processed successfully\"}));
+          }
+          return new Response(\"Not found\", {status: 404});
+        }}); console.log(\"Primary processor running on port 3001\");' > index.js &&
+        bun index.js
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/payments/service-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - payment-network
+
+  # Processador de fallback (mock)
+  processor-fallback:
+    image: oven/bun:1.0-alpine
+    ports:
+      - "3002:3002"
+    working_dir: /app
+    command: >
+      sh -c "
+        echo 'const server = Bun.serve({port: 3002, fetch: (req) => { 
+          if (req.url.includes(\"/payments/service-health\")) {
+            return new Response(JSON.stringify({ok: true, failing: false, minResponseTime: 150}));
+          }
+          if (req.url.includes(\"/payments\")) {
+            return new Response(JSON.stringify({message: \"payment processed successfully by fallback\"}));
+          }
+          return new Response(\"Not found\", {status: 404});
+        }}); console.log(\"Fallback processor running on port 3002\");' > index.js &&
+        bun index.js
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/payments/service-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - payment-network
+
+  # Redis Commander para visualização (opcional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - payment-network
+
+volumes:
+  redis_data:
+
+networks:
+  payment-network:
+    driver: bridge

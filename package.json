@@ -1,0 +1,22 @@
+{
+  "name": "dcarva-bun",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsgo",
+    "start": "bun dist/index.js",
+    "dev:watch": "bun --watch index.ts",
+    "health-check": "bun health-check.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^24.2.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "ioredis": "^5.7.0"
+  }
+}
