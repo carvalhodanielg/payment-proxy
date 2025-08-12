@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "bun build ./index.ts --outdir ./dist",
+    "build": "bun build ./index.ts --outdir ./dist --target node",
     "start": "bun dist/index.js",
     "dev:watch": "bun --watch index.ts",
     "health-check": "bun health-check.js"
